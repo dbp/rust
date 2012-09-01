@@ -38,7 +38,7 @@ export uint, u8, u16, u32, u64;
 export float, f32, f64;
 export box, char, str, ptr, vec, at_vec, bool;
 export either, option, result, iter;
-export libc, os, io, run, rand, sys, unsafe, logging;
+export libc, os, io, run, rand, reflect, sys, unsafe, logging;
 export comm, task, future, pipes;
 export extfmt;
 // The test harness links against core, so don't include runtime in tests.
@@ -260,6 +260,8 @@ mod libc;
 mod os;
 #[warn(non_camel_case_types)]
 mod path;
+#[warn(non_camel_case_types)]
+mod reflect;
 #[warn(non_camel_case_types)]
 mod rand;
 #[warn(non_camel_case_types)]
