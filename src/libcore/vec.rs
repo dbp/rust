@@ -167,7 +167,7 @@ fn reserve_at_least<T>(&v: ~[const T], n: uint) {
 #[inline(always)]
 pure fn capacity<T>(&&v: ~[const T]) -> uint {
     unsafe {
-        let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(addr_of(v));
+        let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(&addr_of(v));
         (**repr).alloc / sys::size_of::<T>()
     }
 }
@@ -335,7 +335,7 @@ pure fn view<T>(v: &[T], start: uint, end: uint) -> &[T] {
     do as_buf(v) |p, _len| {
         unsafe {
             ::unsafe::reinterpret_cast(
-                (ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
+                &(ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
         }
     }
 }
@@ -347,7 +347,7 @@ pure fn mut_view<T>(v: &[mut T], start: uint, end: uint) -> &[mut T] {
     do as_buf(v) |p, _len| {
         unsafe {
             ::unsafe::reinterpret_cast(
-                (ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
+                &(ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
         }
     }
 }
@@ -359,7 +359,7 @@ pure fn const_view<T>(v: &[const T], start: uint, end: uint) -> &[const T] {
     do as_buf(v) |p, _len| {
         unsafe {
             ::unsafe::reinterpret_cast(
-                (ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
+                &(ptr::offset(p, start), (end - start) * sys::size_of::<T>()))
         }
     }
 }
@@ -419,7 +419,7 @@ fn rsplit<T: copy>(v: &[T], f: fn(T) -> bool) -> ~[~[T]] {
     if (ln == 0u) { return ~[] }
 
     let mut end = ln;
-    let mut result = ~[];
+    let mut result = ~[mut ];
     while end > 0u {
         match rposition_between(v, 0u, end, f) {
           None => break,
@@ -430,7 +430,8 @@ fn rsplit<T: copy>(v: &[T], f: fn(T) -> bool) -> ~[~[T]] {
         }
     }
     push(result, slice(v, 0u, end));
-    reversed(result)
+    reverse(result);
+    return from_mut(move result);
 }
 
 /**
@@ -443,7 +444,7 @@ fn rsplitn<T: copy>(v: &[T], n: uint, f: fn(T) -> bool) -> ~[~[T]] {
 
     let mut end = ln;
     let mut count = n;
-    let mut result = ~[];
+    let mut result = ~[mut ];
     while end > 0u && count > 0u {
         match rposition_between(v, 0u, end, f) {
           None => break,
@@ -456,7 +457,8 @@ fn rsplitn<T: copy>(v: &[T], n: uint, f: fn(T) -> bool) -> ~[~[T]] {
         }
     }
     push(result, slice(v, 0u, end));
-    reversed(result)
+    reverse(result);
+    return from_mut(result);
 }
 
 // Mutators
@@ -558,7 +560,7 @@ fn swap_remove<T>(&v: ~[const T], index: uint) -> T {
 #[inline(always)]
 fn push<T>(&v: ~[const T], +initval: T) {
     unsafe {
-        let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(addr_of(v));
+        let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(&addr_of(v));
         let fill = (**repr).fill;
         if (**repr).alloc > fill {
             push_fast(v, initval);
@@ -572,7 +574,7 @@ fn push<T>(&v: ~[const T], +initval: T) {
 // This doesn't bother to make sure we have space.
 #[inline(always)] // really pretty please
 unsafe fn push_fast<T>(&v: ~[const T], +initval: T) {
-    let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(addr_of(v));
+    let repr: **unsafe::VecRepr = ::unsafe::reinterpret_cast(&addr_of(v));
     let fill = (**repr).fill;
     (**repr).fill += sys::size_of::<T>();
     let p = ptr::addr_of((**repr).data);
@@ -1357,7 +1359,7 @@ pure fn windowed<TT: copy>(nn: uint, xx: &[TT]) -> ~[~[TT]] {
 pure fn as_buf<T,U>(s: &[const T],
                     f: fn(*T, uint) -> U) -> U {
     unsafe {
-        let v : *(*T,uint) = ::unsafe::reinterpret_cast(ptr::addr_of(s));
+        let v : *(*T,uint) = ::unsafe::reinterpret_cast(&ptr::addr_of(s));
         let (buf,len) = *v;
         f(buf, len / sys::size_of::<T>())
     }
@@ -1369,7 +1371,7 @@ pure fn as_const_buf<T,U>(s: &[const T],
                           f: fn(*const T, uint) -> U) -> U {
     do as_buf(s) |p, len| {
         unsafe {
-            let pp : *const T = ::unsafe::reinterpret_cast(p);
+            let pp : *const T = ::unsafe::reinterpret_cast(&p);
             f(pp, len)
         }
     }
@@ -1381,7 +1383,7 @@ pure fn as_mut_buf<T,U>(s: &[mut T],
                         f: fn(*mut T, uint) -> U) -> U {
     do as_buf(s) |p, len| {
         unsafe {
-            let pp : *mut T = ::unsafe::reinterpret_cast(p);
+            let pp : *mut T = ::unsafe::reinterpret_cast(&p);
             f(pp, len)
         }
     }
@@ -1478,14 +1480,14 @@ impl<T: Ord> @[T]: Ord {
 }
 
 #[cfg(notest)]
-impl<T: copy> ~[T]: add<&[const T],~[T]> {
+impl<T: copy> ~[T]: Add<&[const T],~[T]> {
     #[inline(always)]
     pure fn add(rhs: &[const T]) -> ~[T] {
-        append(self, rhs)
+        append(copy self, rhs)
     }
 }
 
-impl<T: copy> ~[mut T]: add<&[const T],~[mut T]> {
+impl<T: copy> ~[mut T]: Add<&[const T],~[mut T]> {
     #[inline(always)]
     pure fn add(rhs: &[const T]) -> ~[mut T] {
         append_mut(self, rhs)
@@ -1740,7 +1742,7 @@ mod unsafe {
      */
     #[inline(always)]
     unsafe fn set_len<T>(&&v: ~[const T], new_len: uint) {
-        let repr: **VecRepr = ::unsafe::reinterpret_cast(addr_of(v));
+        let repr: **VecRepr = ::unsafe::reinterpret_cast(&addr_of(v));
         (**repr).fill = new_len * sys::size_of::<T>();
     }
 
@@ -1755,15 +1757,15 @@ mod unsafe {
      */
     #[inline(always)]
     unsafe fn to_ptr<T>(v: ~[const T]) -> *T {
-        let repr: **VecRepr = ::unsafe::reinterpret_cast(addr_of(v));
-        return ::unsafe::reinterpret_cast(addr_of((**repr).data));
+        let repr: **VecRepr = ::unsafe::reinterpret_cast(&addr_of(v));
+        return ::unsafe::reinterpret_cast(&addr_of((**repr).data));
     }
 
 
     #[inline(always)]
     unsafe fn to_ptr_slice<T>(v: &[const T]) -> *T {
-        let repr: **SliceRepr = ::unsafe::reinterpret_cast(addr_of(v));
-        return ::unsafe::reinterpret_cast(addr_of((**repr).data));
+        let repr: **SliceRepr = ::unsafe::reinterpret_cast(&addr_of(v));
+        return ::unsafe::reinterpret_cast(&addr_of((**repr).data));
     }
 
 
@@ -1775,7 +1777,7 @@ mod unsafe {
     unsafe fn form_slice<T,U>(p: *T, len: uint, f: fn(&& &[T]) -> U) -> U {
         let pair = (p, len * sys::size_of::<T>());
         let v : *(&blk/[T]) =
-            ::unsafe::reinterpret_cast(ptr::addr_of(pair));
+            ::unsafe::reinterpret_cast(&ptr::addr_of(pair));
         f(*v)
     }
 
@@ -2379,19 +2381,19 @@ mod tests {
         let mut results: ~[~[int]];
 
         results = ~[];
-        permute(~[], |v| vec::push(results, v));
+        permute(~[], |v| vec::push(results, copy v));
         assert results == ~[~[]];
 
         results = ~[];
-        permute(~[7], |v| results += ~[v]);
+        permute(~[7], |v| results += ~[copy v]);
         assert results == ~[~[7]];
 
         results = ~[];
-        permute(~[1,1], |v| results += ~[v]);
+        permute(~[1,1], |v| results += ~[copy v]);
         assert results == ~[~[1,1],~[1,1]];
 
         results = ~[];
-        permute(~[5,2,0], |v| results += ~[v]);
+        permute(~[5,2,0], |v| results += ~[copy v]);
         assert results ==
             ~[~[5,2,0],~[5,0,2],~[2,5,0],~[2,0,5],~[0,5,2],~[0,2,5]];
     }

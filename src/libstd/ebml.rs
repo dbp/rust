@@ -1,5 +1,3 @@
-#[deny(non_camel_case_types)];
-
 // Simple Extensible Binary Markup Language (ebml) reader and writer on a
 // cursor model. See the specification here:
 //     http://www.matroska.org/technical/specs/rfc/index.html
@@ -43,7 +41,7 @@ type Doc = {data: @~[u8], start: uint, end: uint};
 
 type TaggedDoc = {tag: uint, doc: Doc};
 
-impl Doc: ops::index<uint,Doc> {
+impl Doc: ops::Index<uint,Doc> {
     pure fn index(&&tag: uint) -> Doc {
         unchecked {
             get_doc(self, tag)

@@ -338,7 +338,7 @@ enum t_opaque {}
 type t = *t_opaque;
 
 pure fn get(t: t) -> t_box unsafe {
-    let t2 = unsafe::reinterpret_cast::<t, t_box>(t);
+    let t2 = unsafe::reinterpret_cast::<t, t_box>(&t);
     let t3 = t2;
     unsafe::forget(t2);
     t3
@@ -712,7 +712,7 @@ fn mk_t(cx: ctxt, +st: sty) -> t { mk_t_with_id(cx, st, None) }
 fn mk_t_with_id(cx: ctxt, +st: sty, o_def_id: Option<ast::def_id>) -> t {
     let key = {struct: st, o_def_id: o_def_id};
     match cx.interner.find(key) {
-      Some(t) => unsafe { return unsafe::reinterpret_cast(t); },
+      Some(t) => unsafe { return unsafe::reinterpret_cast(&t); },
       _ => ()
     }
     let mut flags = 0u;
@@ -770,7 +770,7 @@ fn mk_t_with_id(cx: ctxt, +st: sty, o_def_id: Option<ast::def_id>) -> t {
     let t = @{struct: st, id: cx.next_id, flags: flags, o_def_id: o_def_id};
     cx.interner.insert(key, t);
     cx.next_id += 1u;
-    unsafe { unsafe::reinterpret_cast(t) }
+    unsafe { unsafe::reinterpret_cast(&t) }
 }
 
 fn mk_nil(cx: ctxt) -> t { mk_t(cx, ty_nil) }
@@ -1605,7 +1605,7 @@ fn remove_copyable(k: kind) -> kind {
     k - kind_(KIND_MASK_COPY | KIND_MASK_DEFAULT_MODE)
 }
 
-impl kind: ops::bitand<kind,kind> {
+impl kind: ops::BitAnd<kind,kind> {
     pure fn bitand(other: kind) -> kind {
         unchecked {
             lower_kind(self, other)
@@ -1613,7 +1613,7 @@ impl kind: ops::bitand<kind,kind> {
     }
 }
 
-impl kind: ops::bitor<kind,kind> {
+impl kind: ops::BitOr<kind,kind> {
     pure fn bitor(other: kind) -> kind {
         unchecked {
             raise_kind(self, other)
@@ -1621,7 +1621,7 @@ impl kind: ops::bitor<kind,kind> {
     }
 }
 
-impl kind: ops::sub<kind,kind> {
+impl kind: ops::Sub<kind,kind> {
     pure fn sub(other: kind) -> kind {
         unchecked {
             kind_(*self & !*other)

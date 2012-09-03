@@ -2508,7 +2508,34 @@ fn lval_static_fn_inner(bcx: block, fn_id: ast::def_id, id: ast::node_id,
         maybe_instantiate_inline(ccx, fn_id)
     } else { fn_id };
 
-    if fn_id.crate == ast::local_crate && tys.len() > 0u {
+    let must_monomorphise = {
+        let local_with_type_params =
+            fn_id.crate == ast::local_crate && tys.len() > 0u;
+
+        // Intrinsic functions should always be monomorphised. In particular,
+        // if we see an intrinsic that is inlined from a different crate, we
+        // want to reemit the intrinsic instead of trying to call it in the
+        // other crate.
+        let rust_intrinsic = if fn_id.crate == ast::local_crate {
+
+            let map_node = session::expect(
+                ccx.sess,
+                ccx.tcx.items.find(fn_id.node),
+                || fmt!("local item should be in ast map"));
+
+            match map_node {
+              ast_map::node_foreign_item(
+                  _, ast::foreign_abi_rust_intrinsic, _) => true,
+              _ => false
+            }
+        } else {
+            false
+        };
+
+        local_with_type_params || rust_intrinsic
+    };
+
+    if must_monomorphise {
         let mut {val, must_cast} =
             monomorphic_fn(ccx, fn_id, tys, vtables, Some(id));
         if must_cast {
@@ -3112,24 +3139,24 @@ fn trans_arg_expr(cx: block, arg: ty::arg, lldestty: TypeRef, e: @ast::expr,
 
           ast::by_copy | ast::by_move => {
             // Ensure that an owned copy of the value is in memory:
-            let alloc = alloc_ty(bcx, arg.ty);
+            let alloc = alloc_ty(bcx, e_ty);
             let move_out = arg_mode == ast::by_move ||
                 ccx.maps.last_use_map.contains_key(e.id);
             if lv.kind == lv_temporary { revoke_clean(bcx, val); }
-            if lv.kind == lv_owned || !ty::type_is_immediate(arg.ty) {
-                memmove_ty(bcx, alloc, val, arg.ty);
-                if move_out && ty::type_needs_drop(ccx.tcx, arg.ty) {
-                    bcx = zero_mem(bcx, val, arg.ty);
+            if lv.kind == lv_owned || !ty::type_is_immediate(e_ty) {
+                memmove_ty(bcx, alloc, val, e_ty);
+                if move_out && ty::type_needs_drop(ccx.tcx, e_ty) {
+                    bcx = zero_mem(bcx, val, e_ty);
                 }
             } else { Store(bcx, val, alloc); }
             val = alloc;
             if lv.kind != lv_temporary && !move_out {
-                bcx = take_ty(bcx, val, arg.ty);
+                bcx = take_ty(bcx, val, e_ty);
             }
 
             // In the event that failure occurs before the call actually
             // happens, have to cleanup this copy:
-            add_clean_temp_mem(bcx, val, arg.ty);
+            add_clean_temp_mem(bcx, val, e_ty);
             vec::push(temp_cleanups, val);
           }
         }
@@ -3151,6 +3178,9 @@ fn trans_arg_expr(cx: block, arg: ty::arg, lldestty: TypeRef, e: @ast::expr,
 // routine consults this table and performs these adaptations.  It returns a
 // new location for the borrowed result as well as a new type for the argument
 // that reflects the borrowed value and not the original.
+//
+// NB: "e" has already been translated; do not translate it again. If you do,
+// this will cause problems with autoderef and method receivers (bug #3357).
 fn adapt_borrowed_value(lv: lval_result,
                         e: @ast::expr,
                         e_ty: ty::t) -> {lv: lval_result,
@@ -3200,7 +3230,7 @@ fn adapt_borrowed_value(lv: lval_result,
 
       _ => {
         // Just take a reference. This is basically like trans_addr_of.
-        let mut {bcx, val, kind} = trans_temp_lval(bcx, e);
+        let mut {bcx, val, kind} = lv;
         let is_immediate = ty::type_is_immediate(e_ty);
         if (kind == lv_temporary && is_immediate) || kind == lv_owned_imm {
             val = do_spill(bcx, val, e_ty);

@@ -44,7 +44,7 @@ impl (): ToStr {
     fn to_str() -> ~str { ~"()" }
 }
 impl ~str: ToStr {
-    fn to_str() -> ~str { self }
+    fn to_str() -> ~str { copy self }
 }
 impl &str: ToStr {
     fn to_str() -> ~str { str::from_slice(self) }
@@ -84,6 +84,7 @@ impl<A: ToStr> ~A: ToStr {
 }
 
 #[cfg(test)]
+#[allow(non_implicitly_copyable_typarams)]
 mod tests {
     #[test]
     fn test_simple_types() {

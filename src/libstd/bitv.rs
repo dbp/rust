@@ -1,4 +1,3 @@
-#[deny(non_camel_case_types)];
 import vec::{to_mut, from_elem};
 
 export Bitv;
@@ -470,7 +469,7 @@ pure fn land(w0: uint, w1: uint) -> uint { return w0 & w1; }
 
 pure fn right(_w0: uint, w1: uint) -> uint { return w1; }
 
-impl Bitv: ops::index<uint,bool> {
+impl Bitv: ops::Index<uint,bool> {
     pure fn index(&&i: uint) -> bool {
         self.get(i)
     }

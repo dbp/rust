@@ -4,6 +4,7 @@
 
 import T = inst::T;
 import cmp::{Eq, Ord};
+import from_str::FromStr;
 import num::from_int;
 
 export min_value, max_value;
@@ -137,7 +138,7 @@ impl T: iter::TimesIx {
  * * buf - A byte buffer
  * * radix - The base of the number
  */
-fn parse_buf(buf: ~[u8], radix: uint) -> Option<T> {
+fn parse_buf(buf: &[u8], radix: uint) -> Option<T> {
     if vec::len(buf) == 0u { return None; }
     let mut i = vec::len(buf) - 1u;
     let mut start = 0u;
@@ -161,6 +162,10 @@ fn parse_buf(buf: ~[u8], radix: uint) -> Option<T> {
 
 /// Parse a string to an int
 fn from_str(s: &str) -> Option<T> { parse_buf(str::to_bytes(s), 10u) }
+
+impl T : FromStr {
+    static fn from_str(s: &str) -> Option<T> { from_str(s) }
+}
 
 /// Convert to a string in a given base
 fn to_str(n: T, radix: uint) -> ~str {

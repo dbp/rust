@@ -1,6 +1,7 @@
 //! A map type
 
-#[warn(deprecated_mode)];
+#[forbid(deprecated_mode)];
+#[forbid(deprecated_pattern)];
 
 import io::WriterUtil;
 import to_str::ToStr;
@@ -366,7 +367,7 @@ mod chained {
         }
     }
 
-    impl<K: copy, V: copy> t<K, V>: ops::index<K, V> {
+    impl<K: copy, V: copy> t<K, V>: ops::Index<K, V> {
         pure fn index(&&k: K) -> V {
             unchecked {
                 self.get(k)

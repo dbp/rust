@@ -6,15 +6,16 @@ import map::{hashmap, str_hash};
 import io::{Reader, ReaderUtil};
 import dvec::DVec;
 
-export Url, userinfo, query;
+export Url, url, userinfo, query;
 export from_str, to_str;
 export get_scheme;
+export query_to_str;
 
 export encode, decode;
 export encode_component, decode_component;
 export encode_form_urlencoded, decode_form_urlencoded;
 
-type Url = {
+struct Url {
     scheme: ~str,
     user: Option<UserInfo>,
     host: ~str,
@@ -22,7 +23,7 @@ type Url = {
     path: ~str,
     query: Query,
     fragment: Option<~str>
-};
+}
 
 type UserInfo = {
     user: ~str,
@@ -34,7 +35,7 @@ type Query = ~[(~str, ~str)];
 fn url(-scheme: ~str, -user: Option<UserInfo>, -host: ~str,
        -port: Option<~str>, -path: ~str, -query: Query,
        -fragment: Option<~str>) -> Url {
-    { scheme: scheme, user: user, host: host, port: port,
+    Url { scheme: scheme, user: user, host: host, port: port,
      path: path, query: query, fragment: fragment }
 }
 
@@ -42,7 +43,7 @@ fn userinfo(-user: ~str, -pass: Option<~str>) -> UserInfo {
     {user: user, pass: pass}
 }
 
-fn encode_inner(s: ~str, full_url: bool) -> ~str {
+fn encode_inner(s: &str, full_url: bool) -> ~str {
     do io::with_str_reader(s) |rdr| {
         let mut out = ~"";
 
@@ -50,9 +51,9 @@ fn encode_inner(s: ~str, full_url: bool) -> ~str {
             let ch = rdr.read_byte() as char;
             match ch {
               // unreserved:
-              'A' to 'Z' |
-              'a' to 'z' |
-              '0' to '9' |
+              'A' .. 'Z' |
+              'a' .. 'z' |
+              '0' .. '9' |
               '-' | '.' | '_' | '~' => {
                 str::push_char(out, ch);
               }
@@ -87,7 +88,7 @@ fn encode_inner(s: ~str, full_url: bool) -> ~str {
  *
  * This function is compliant with RFC 3986.
  */
-fn encode(s: ~str) -> ~str {
+fn encode(s: &str) -> ~str {
     encode_inner(s, true)
 }
 
@@ -97,7 +98,7 @@ fn encode(s: ~str) -> ~str {
  *
  * This function is compliant with RFC 3986.
  */
-fn encode_component(s: ~str) -> ~str {
+fn encode_component(s: &str) -> ~str {
     encode_inner(s, false)
 }
 
@@ -162,7 +163,7 @@ fn encode_plus(s: ~str) -> ~str {
         while !rdr.eof() {
             let ch = rdr.read_byte() as char;
             match ch {
-              'A' to 'Z' | 'a' to 'z' | '0' to '9' | '_' | '.' | '-' => {
+              'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '.' | '-' => {
                 str::push_char(out, ch);
               }
               ' ' => str::push_char(out, '+'),
@@ -340,8 +341,8 @@ fn query_to_str(query: Query) -> ~str {
 fn get_scheme(rawurl: ~str) -> result::Result<(~str, ~str), @~str> {
     for str::each_chari(rawurl) |i,c| {
         match c {
-          'A' to 'Z' | 'a' to 'z' => again,
-          '0' to '9' | '+' | '-' | '.' => {
+          'A' .. 'Z' | 'a' .. 'z' => again,
+          '0' .. '9' | '+' | '-' | '.' => {
             if i == 0 {
                 return result::Err(@~"url: Scheme must begin with a letter.");
             }
@@ -415,13 +416,13 @@ fn get_authority(rawurl: ~str) ->
 
         // deal with input class first
         match c {
-          '0' to '9' => (),
-          'A' to 'F' | 'a' to 'f' => {
+          '0' .. '9' => (),
+          'A' .. 'F' | 'a' .. 'f' => {
             if in == Digit {
                 in = Hex;
             }
           }
-          'G' to 'Z' | 'g' to 'z' | '-' | '.' | '_' | '~' | '%' |
+          'G' .. 'Z' | 'g' .. 'z' | '-' | '.' | '_' | '~' | '%' |
           '&' |'\'' | '(' | ')' | '+' | '!' | '*' | ',' | ';' | '=' => {
             in = Unreserved;
           }
@@ -558,7 +559,7 @@ fn get_path(rawurl: ~str, authority : bool) ->
     let mut end = len;
     for str::each_chari(rawurl) |i,c| {
         match c {
-          'A' to 'Z' | 'a' to 'z' | '0' to '9' | '&' |'\'' | '(' | ')' | '.'
+          'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '&' |'\'' | '(' | ')' | '.'
           | '@' | ':' | '%' | '/' | '+' | '!' | '*' | ',' | ';' | '='
           | '_' | '-' => {
             again;
@@ -917,30 +918,30 @@ mod tests {
 
     #[test]
     fn test_encode() {
-        assert encode(~"") == ~"";
-        assert encode(~"http://example.com") == ~"http://example.com";
-        assert encode(~"foo bar% baz") == ~"foo%20bar%25%20baz";
-        assert encode(~" ") == ~"%20";
-        assert encode(~"!") == ~"!";
-        assert encode(~"\"") == ~"\"";
-        assert encode(~"#") == ~"#";
-        assert encode(~"$") == ~"$";
-        assert encode(~"%") == ~"%25";
-        assert encode(~"&") == ~"&";
-        assert encode(~"'") == ~"%27";
-        assert encode(~"(") == ~"(";
-        assert encode(~")") == ~")";
-        assert encode(~"*") == ~"*";
-        assert encode(~"+") == ~"+";
-        assert encode(~",") == ~",";
-        assert encode(~"/") == ~"/";
-        assert encode(~":") == ~":";
-        assert encode(~";") == ~";";
-        assert encode(~"=") == ~"=";
-        assert encode(~"?") == ~"?";
-        assert encode(~"@") == ~"@";
-        assert encode(~"[") == ~"[";
-        assert encode(~"]") == ~"]";
+        assert encode("") == ~"";
+        assert encode("http://example.com") == ~"http://example.com";
+        assert encode("foo bar% baz") == ~"foo%20bar%25%20baz";
+        assert encode(" ") == ~"%20";
+        assert encode("!") == ~"!";
+        assert encode("\"") == ~"\"";
+        assert encode("#") == ~"#";
+        assert encode("$") == ~"$";
+        assert encode("%") == ~"%25";
+        assert encode("&") == ~"&";
+        assert encode("'") == ~"%27";
+        assert encode("(") == ~"(";
+        assert encode(")") == ~")";
+        assert encode("*") == ~"*";
+        assert encode("+") == ~"+";
+        assert encode(",") == ~",";
+        assert encode("/") == ~"/";
+        assert encode(":") == ~":";
+        assert encode(";") == ~";";
+        assert encode("=") == ~"=";
+        assert encode("?") == ~"?";
+        assert encode("@") == ~"@";
+        assert encode("[") == ~"[";
+        assert encode("]") == ~"]";
     }
 
     #[test]

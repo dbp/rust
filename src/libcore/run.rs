@@ -87,7 +87,7 @@ fn with_argv<T>(prog: &str, args: &[~str],
     let mut argptrs = str::as_c_str(prog, |b| ~[b]);
     let mut tmps = ~[];
     for vec::each(args) |arg| {
-        let t = @arg;
+        let t = @copy arg;
         vec::push(tmps, t);
         vec::push_all(argptrs, str::as_c_str(*t, |b| ~[b]));
     }
@@ -106,14 +106,14 @@ fn with_envp<T>(env: &Option<~[(~str,~str)]>,
         let mut ptrs = ~[];
 
         for vec::each(es) |e| {
-            let (k,v) = e;
+            let (k,v) = copy e;
             let t = @(fmt!("%s=%s", k, v));
             vec::push(tmps, t);
             vec::push_all(ptrs, str::as_c_str(*t, |b| ~[b]));
         }
         vec::push(ptrs, ptr::null());
         vec::as_buf(ptrs, |p, _len|
-            unsafe { cb(::unsafe::reinterpret_cast(p)) }
+            unsafe { cb(::unsafe::reinterpret_cast(&p)) }
         )
       }
       _ => cb(ptr::null())
@@ -133,12 +133,12 @@ fn with_envp<T>(env: &Option<~[(~str,~str)]>,
             for vec::each(es) |e| {
                 let (k,v) = e;
                 let t = fmt!("%s=%s", k, v);
-                let mut v : ~[u8] = ::unsafe::reinterpret_cast(t);
+                let mut v : ~[u8] = ::unsafe::reinterpret_cast(&t);
                 blk += v;
                 ::unsafe::forget(v);
             }
             blk += ~[0_u8];
-            vec::as_buf(blk, |p, _len| cb(::unsafe::reinterpret_cast(p)))
+            vec::as_buf(blk, |p, _len| cb(::unsafe::reinterpret_cast(&p)))
           }
           _ => cb(ptr::null())
         }
@@ -315,10 +315,10 @@ fn program_output(prog: &str, args: &[~str]) ->
         let stream = comm::recv(p);
         match stream {
             (1, s) => {
-                outs = s;
+                outs = copy s;
             }
             (2, s) => {
-                errs = s;
+                errs = copy s;
             }
             (n, _) => {
                 fail(fmt!("program_output received an unexpected file \
